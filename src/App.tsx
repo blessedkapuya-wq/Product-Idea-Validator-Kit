@@ -16,8 +16,8 @@ const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
   priceTsh: 15000,
   originalPriceTsh: 30000,
   priceUsd: 7,
-  checkoutConfigured: false,
-  checkoutUrl: null,
+  checkoutConfigured: true,
+  checkoutUrl: 'https://selar.com/17tgm219sm',
   accessVerificationConfigured: false,
 };
 
@@ -54,7 +54,13 @@ export default function App() {
 
       if (cfgRes.ok) {
         const cfg = (await cfgRes.json()) as PublicConfig;
-        setPublicConfig(cfg);
+        setPublicConfig({
+          ...cfg,
+          checkoutConfigured: true,
+          checkoutUrl: cfg.checkoutConfigured && cfg.checkoutUrl
+            ? cfg.checkoutUrl
+            : DEFAULT_PUBLIC_CONFIG.checkoutUrl,
+        });
       }
       if (sessionRes.ok) {
         const sess = (await sessionRes.json()) as {
