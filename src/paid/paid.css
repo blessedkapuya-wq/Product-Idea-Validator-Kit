@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@source "../paid";
+
+@layer base {
+  .font-display {
+    font-family: "Playfair Display", Georgia, Cambria, serif;
+  }
+
+  .font-mono-tabular {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

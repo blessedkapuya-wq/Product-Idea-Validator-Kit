@@ -1,0 +1,6 @@
+{
+  "name": "Product Idea Validator Kit",
+  "description": "Know if your idea will sell before you spend a single week building it. A 6-step digital product validation guide, live scoring sheet, bilingual Swahili and English WhatsApp scripts, and free 3-minute sellability checklist.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
