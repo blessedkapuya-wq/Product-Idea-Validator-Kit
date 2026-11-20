@@ -1,8 +1,8 @@
 import type { WorkspaceState } from '../src/paid/types';
+import { build25PageGuideHtml } from './guideHtmlBuilder';
 import {
   CONVERSATION_SCRIPTS,
   DEFAULT_WORKSPACE_STATE,
-  GUIDE_STEPS,
   PRESELL_TEMPLATES,
   RED_FLAGS,
   SELLABILITY_CHECKLIST_QUESTIONS,
@@ -123,71 +123,7 @@ function buildWorkedExamplesAndRedFlags(): string {
 }
 
 export function buildGuideHtml(state: WorkspaceState): string {
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Biashara Base — Product Idea Validator Kit Guide</title>
-<style>
-  body { font-family: Georgia, serif; background: #F7F3E9; color: #18291F; max-width: 780px; margin: 40px auto; padding: 24px; line-height: 1.6; }
-  h1, h2, h3 { color: #183926; }
-  .cover { background: #183926; color: #F7F3E9; padding: 32px; border: 1px solid #C29B48; margin-bottom: 32px; }
-  .cover-inner { border: 1px solid #C29B48; padding: 36px 28px; }
-  .cover h1 { color: #FFFFFF; margin: 16px 0; font-size: 34px; line-height: 1.1; }
-  .rule { width: 64px; height: 3px; background: #C29B48; margin: 18px 0; }
-  .gold { color: #C29B48; font-family: sans-serif; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; }
-  .step { background: #FFFFFF; border: 1px solid #C29B48; padding: 20px; margin-bottom: 16px; }
-  .note { background: #EDE7D6; padding: 14px 18px; border: 1px solid #C29B48; margin: 20px 0; font-family: sans-serif; font-size: 14px; }
-  ul { font-family: sans-serif; font-size: 14px; }
-</style>
-</head>
-<body>
-  <div class="cover">
-    <div class="cover-inner">
-      <div class="gold">BIASHARA BASE</div>
-      <h1>Product Idea<br/>Validator Kit</h1>
-      <div class="rule"></div>
-      <p><em>Know if your idea will sell before you spend a single week building it.</em></p>
-      <div style="margin-top:36px;">
-        <div class="gold">6-STEP DIGITAL KIT · SWAHILI &amp; ENGLISH</div>
-        <div style="font-family:sans-serif;font-size:12px;color:#FFFFFF;margin-top:4px;">biasharabase.com</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="note">
-    <strong>Keep it honest:</strong> This kit helps you test an idea cheaply before spending weeks building. A good score improves your odds, but never guarantees sales or income.
-  </div>
-
-  <h2>The 6 Steps Inside the Guide</h2>
-  ${GUIDE_STEPS.map(
-    (s) => `
-    <div class="step">
-      <div class="gold">Step ${s.number} · ${esc(s.pageRange)} · ${esc(s.timeEstimate)}</div>
-      <h3>${esc(s.title)}</h3>
-      <p>${esc(s.summary)}</p>
-      <p><strong>What to do:</strong> ${esc(s.buyerAction)}</p>
-    </div>`
-  ).join('')}
-
-  <h2>Your Saved Skill Inventory</h2>
-  <ul>
-    ${[...state.skillInventory.whatIKnow, ...state.skillInventory.askedForHelp, ...state.skillInventory.problemsSolved]
-      .map((item) => `<li>${esc(item)}</li>`)
-      .join('') || '<li>Fill in Step 1 inside your interactive workspace.</li>'}
-  </ul>
-
-  <h2>7-Day Build Plan (Once Your Idea Passes Step 6)</h2>
-  <ul>
-    ${state.decision.sevenDayPlan
-      .map((d) => `<li><strong>Day ${d.day} (${esc(d.focus)}):</strong> ${esc(d.task)}</li>`)
-      .join('')}
-  </ul>
-</body>
-</html>`;
+  return build25PageGuideHtml(sanitizeWorkspaceState(state));
 }
 
 function buildLeadMagnetHtml(): string {

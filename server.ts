@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import {
+  type AuthenticatedRequest,
   buildSessionCookieHeader,
   checkUnlockRateLimit,
   clearUnlockFailures,
@@ -14,7 +15,7 @@ import {
   requirePaidAuth,
   verifyPaidAccessKey,
 } from './server/auth';
-import { buildGuideHtml, generateCustomerKitZipBuffer } from './server/kitZipGenerator';
+import { buildGuideHtml, generateCustomerKitZipBuffer, sanitizeWorkspaceState } from './server/kitZipGenerator';
 import {
   CONVERSATION_SCRIPTS,
   DEFAULT_WORKSPACE_STATE,
@@ -229,11 +230,17 @@ export async function createApp(options?: { isProd?: boolean }) {
   const paidRouter = express.Router();
   paidRouter.use(requirePaidAuth);
 
-  paidRouter.get('/kit-data', (_req: Request, res: Response) => {
+  paidRouter.get('/kit-data', (req: AuthenticatedRequest, res: Response) => {
+    const session = req.paidSession!;
     res.json({
+      session: {
+        keyId: session.keyId,
+        orderRef: session.ord,
+        expiresAt: session.exp,
+      },
       guideSteps: GUIDE_STEPS,
       conversationScripts: CONVERSATION_SCRIPTS,
-      preSellTemplates: PRESELL_TEMPLATES,
+      presellTemplates: PRESELL_TEMPLATES,
       workedExamples: WORKED_EXAMPLES,
       redFlags: RED_FLAGS,
       defaultWorkspaceState: DEFAULT_WORKSPACE_STATE,
@@ -247,15 +254,21 @@ export async function createApp(options?: { isProd?: boolean }) {
   paidRouter.get('/scripts', (_req: Request, res: Response) => {
     res.json({
       conversationScripts: CONVERSATION_SCRIPTS,
-      preSellTemplates: PRESELL_TEMPLATES,
+      presellTemplates: PRESELL_TEMPLATES,
     });
   });
 
-  paidRouter.get('/guide', (_req: Request, res: Response) => {
-    const html = buildGuideHtml(DEFAULT_WORKSPACE_STATE);
+  const handleGuideRequest = (req: Request, res: Response) => {
+    const state = req.body?.workspaceState
+      ? sanitizeWorkspaceState(req.body.workspaceState)
+      : DEFAULT_WORKSPACE_STATE;
+    const html = buildGuideHtml(state);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
-  });
+  };
+
+  paidRouter.get('/guide', handleGuideRequest);
+  paidRouter.post('/guide', handleGuideRequest);
 
   const handleZipDownload = (req: Request, res: Response) => {
     const zipBuffer = generateCustomerKitZipBuffer(req.body?.workspaceState);

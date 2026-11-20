@@ -7,7 +7,9 @@ import {
   Compass,
   Copy,
   Download,
+  ExternalLink,
   FileSpreadsheet,
+  FileText,
   Image as ImageIcon,
   ListChecks,
   LogOut,
@@ -18,7 +20,7 @@ import {
   RotateCcw,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   KitSectionId,
   PaidKitBundleData,
@@ -84,7 +86,45 @@ export function KitWorkspace({
   downloadingZip,
   onSignOut,
 }: KitWorkspaceProps) {
-  const [activeSection, setActiveSection] = useState<KitSectionId>('step-1');
+  const [activeSection, setActiveSection] = useState<KitSectionId>('full-guide');
+  const [guideHtml, setGuideHtml] = useState<string>('');
+  const [loadingGuide, setLoadingGuide] = useState(false);
+  const [guideError, setGuideError] = useState('');
+  const guideFrameRef = useRef<HTMLIFrameElement | null>(null);
+
+  useEffect(() => {
+    if (activeSection !== 'full-guide') return;
+    let active = true;
+    setLoadingGuide(true);
+    setGuideError('');
+    fetch('/api/paid/guide', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspaceState: state }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error('Could not load the 25-page guide.');
+        }
+        return res.text();
+      })
+      .then((html) => {
+        if (active) {
+          setGuideHtml(html);
+          setLoadingGuide(false);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setGuideError(err instanceof Error ? err.message : 'Unable to load guide.');
+          setLoadingGuide(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeSection, state]);
 
   const [skillDrafts, setSkillDrafts] = useState({
     whatIKnow: '',
@@ -271,8 +311,9 @@ export function KitWorkspace({
     items: { id: KitSectionId; label: string; badge?: string; icon: React.ComponentType<{ className?: string }> }[];
   }[] = [
     {
-      groupLabel: 'The 6-Step Guide (25–35 Pages)',
+      groupLabel: 'The 6-Step Guide (25 Pages)',
       items: [
+        { id: 'full-guide', label: 'Full 25-Page Guide', badge: '25p', icon: FileText },
         { id: 'step-1', label: '01. Your Skill Inventory', icon: ListChecks },
         { id: 'step-2', label: '02. Idea Generator', badge: `${state.ideas.length}/10`, icon: Plus },
         { id: 'step-3', label: '03. The Scoring Sheet', icon: FileSpreadsheet },
@@ -322,6 +363,14 @@ export function KitWorkspace({
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#526056] bg-white border border-[#183926]/20 rounded hover:bg-[#EDE7D6] transition-colors cursor-pointer whitespace-nowrap"
           >
             Start Blank
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection('full-guide')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#183926] bg-[#EDE7D6] border border-[#C29B48] rounded hover:bg-[#C29B48]/35 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <FileText className="w-3.5 h-3.5 text-[#9A772F]" />
+            25-Page Guide
           </button>
           <button
             type="button"
@@ -463,6 +512,74 @@ export function KitWorkspace({
                   {activeStepMeta.summary}
                 </p>
               </div>
+            </div>
+          )}
+
+          {activeSection === 'full-guide' && (
+            <div className="space-y-5">
+              <div className="pb-4 border-b border-[#C29B48]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold tracking-wider uppercase text-[#9A772F]">
+                    Complete Printable Workbook · Pages 1–25
+                  </div>
+                  <h2 className="font-display text-2xl font-bold text-[#183926] mt-0.5">
+                    25-Page Step-by-Step Validator Guide
+                  </h2>
+                  <p className="text-sm text-[#526056] mt-1">
+                    Synced automatically with your workspace answers, scored ideas, buyer quotes, and 7-day build plan. Also included inside your <code className="font-mono-tabular text-xs bg-[#EDE7D6] px-1">.zip</code> download.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0 no-print">
+                  <button
+                    type="button"
+                    onClick={() => guideFrameRef.current?.contentWindow?.print()}
+                    disabled={!guideHtml}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#183926] bg-[#C29B48] rounded hover:bg-[#AE8838] disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print / Save 25-Page PDF
+                  </button>
+                  <a
+                    href="/api/paid/guide"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#F7F3E9] bg-[#183926] rounded hover:bg-[#122B1C] whitespace-nowrap"
+                  >
+                    <span>Open Standalone</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-[#C29B48]" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('step-1')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#183926] bg-[#F7F3E9] border border-[#183926]/20 rounded hover:bg-[#EDE7D6] cursor-pointer whitespace-nowrap"
+                  >
+                    <span>Start Interactive Step 1</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {loadingGuide && (
+                <div className="p-8 text-center bg-[#F7F3E9] border border-[#C29B48]/40 text-sm text-[#183926]">
+                  Preparing your 25-page step-by-step guide...
+                </div>
+              )}
+
+              {guideError && (
+                <div className="p-4 bg-[#F5E8E4] border border-[#9A3412]/30 text-sm text-[#9A3412]">
+                  {guideError}
+                </div>
+              )}
+
+              {!loadingGuide && guideHtml && (
+                <iframe
+                  ref={guideFrameRef}
+                  title="Biashara Base 25-Page Step-by-Step Guide"
+                  srcDoc={guideHtml}
+                  className="w-full h-[780px] border border-[#C29B48] bg-[#E2DAC6]"
+                />
+              )}
             </div>
           )}
 

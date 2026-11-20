@@ -246,6 +246,13 @@ describe('Biashara Base Paid-Access Gate Integration Tests', () => {
       body: JSON.stringify({}),
     });
     assert.equal(postZipUnauth.status, 401);
+
+    const postGuideUnauth = await fetch(`${baseUrl}/api/paid/guide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(postGuideUnauth.status, 401);
   });
 
   it('issues HttpOnly Secure SameSite session cookie on valid key, serves paid APIs & ZIP, and locks on logout', async () => {
@@ -294,17 +301,22 @@ describe('Biashara Base Paid-Access Gate Integration Tests', () => {
     const kitRes = await fetch(`${baseUrl}/api/paid/kit-data`, { headers: authHeaders });
     assert.equal(kitRes.status, 200);
     const kitData = (await kitRes.json()) as {
+      session: { keyId: string; orderRef?: string; expiresAt: number };
       guideSteps: unknown[];
       conversationScripts: unknown[];
+      presellTemplates: unknown[];
       workedExamples: unknown[];
       redFlags: unknown[];
     };
+    assert.equal(kitData.session.keyId, issued.keyId);
+    assert.equal(kitData.session.orderRef, 'SELAR-ORDER-9001');
     assert.equal(kitData.guideSteps.length, 6);
     assert.equal(kitData.conversationScripts.length, 5);
+    assert.equal(kitData.presellTemplates.length, 3);
     assert.equal(kitData.workedExamples.length, 3);
     assert.equal(kitData.redFlags.length, 10);
 
-    // Protected examples, scripts, guide, and bundle assets
+    // Protected examples, scripts, 25-page guide, and bundle assets
     const examplesRes = await fetch(`${baseUrl}/api/paid/examples`, { headers: authHeaders });
     assert.equal(examplesRes.status, 200);
 
@@ -315,6 +327,31 @@ describe('Biashara Base Paid-Access Gate Integration Tests', () => {
     assert.equal(guideRes.status, 200);
     const guideHtml = await guideRes.text();
     assert.ok(guideHtml.includes('Product Idea') && guideHtml.includes('Validator Kit'));
+    assert.ok(guideHtml.includes('id="page-1"'), 'Guide must include Page 1');
+    assert.ok(guideHtml.includes('Page 2 of 25'), 'Guide must include Page 2 of 25');
+    assert.ok(guideHtml.includes('Page 25 of 25'), 'Guide must include Page 25 of 25');
+
+    const postGuideRes = await fetch(`${baseUrl}/api/paid/guide`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspaceState: {
+          scriptVariables: {
+            topic: 'Creator Reels Template Pack',
+            audience: 'Tanzania digital creators',
+            priceTsh: 'TSh 15,000',
+            priceUsd: '$7',
+          },
+        },
+      }),
+    });
+    assert.equal(postGuideRes.status, 200);
+    const postGuideHtml = await postGuideRes.text();
+    assert.ok(postGuideHtml.includes('Creator Reels Template Pack'));
+    assert.ok(postGuideHtml.includes('Page 25 of 25'));
 
     const bundleJsRes = await fetch(`${baseUrl}/api/paid/bundle.js`, { headers: authHeaders });
     assert.equal(bundleJsRes.status, 200);
