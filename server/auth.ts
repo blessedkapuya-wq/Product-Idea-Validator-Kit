@@ -57,16 +57,21 @@ export function getValidatedSelarCheckoutUrl(rawUrl: string | undefined): string
   }
 }
 
-export function getServerSecurityConfig() {
-  const accessKeySecretRaw = process.env.ACCESS_KEY_SECRET;
-  const sessionSecretRaw = process.env.SESSION_SECRET;
-  const selarCheckoutUrl = getValidatedSelarCheckoutUrl(process.env.SELAR_CHECKOUT_URL);
+export function getServerSecurityConfig(env: {
+  ACCESS_KEY_SECRET?: string;
+  SESSION_SECRET?: string;
+  SELAR_CHECKOUT_URL?: string;
+  REVOKED_KEY_IDS?: string;
+} = process.env) {
+  const accessKeySecretRaw = env.ACCESS_KEY_SECRET;
+  const sessionSecretRaw = env.SESSION_SECRET;
+  const selarCheckoutUrl = getValidatedSelarCheckoutUrl(env.SELAR_CHECKOUT_URL);
 
   const accessKeyConfigured = isValidSecret(accessKeySecretRaw);
   const sessionConfigured = isValidSecret(sessionSecretRaw);
 
   const revokedIds = new Set(
-    (process.env.REVOKED_KEY_IDS || '')
+    (env.REVOKED_KEY_IDS || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
@@ -295,7 +300,7 @@ export function requirePaidAuth(req: AuthenticatedRequest, res: Response, next: 
   next();
 }
 
-export function buildSessionCookieHeader(token: string, clear = false): string {
+export function buildSessionCookieHeader(token: string, clear = false, secure = process.env.ALLOW_INSECURE_LOCAL_COOKIE !== 'true'): string {
   const attrs = [
     `${SESSION_COOKIE_NAME}=${clear ? '' : encodeURIComponent(token)}`,
     'Path=/',
@@ -303,7 +308,7 @@ export function buildSessionCookieHeader(token: string, clear = false): string {
     'SameSite=Lax',
     `Max-Age=${clear ? 0 : SESSION_TTL_SECONDS}`,
   ];
-  if (process.env.ALLOW_INSECURE_LOCAL_COOKIE !== 'true') {
+  if (secure) {
     attrs.push('Secure');
   }
   return attrs.join('; ');
