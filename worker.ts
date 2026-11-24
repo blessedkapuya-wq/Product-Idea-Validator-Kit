@@ -1,7 +1,8 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import {
   SESSION_COOKIE_NAME, buildSessionCookieHeader, checkUnlockRateLimit,
   clearUnlockFailures, createSessionToken, getServerSecurityConfig, parseCookieHeader,
-  recordUnlockFailure, verifyPaidAccessKey, verifySessionToken,
+  issuePaidAccessKey, recordUnlockFailure, verifyPaidAccessKey, verifySessionToken,
 } from './server/auth';
 import { buildGuideHtml, generateCustomerKitZipBuffer, sanitizeWorkspaceState } from './server/kitZipGenerator';
 import {
@@ -12,6 +13,7 @@ import {
 import { paidJs, paidCss } from './dist/private/worker-assets.mjs';
 
 type Env = NonNullable<Parameters<typeof getServerSecurityConfig>[0]> & {
+  ZAPIER_ISSUE_SECRET?: string;
   ASSETS: { fetch(request: Request): Promise<Response> };
 };
 
@@ -80,6 +82,21 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (method === 'POST') {
     const origin = request.headers.get('Origin');
     if (origin && origin !== new URL(request.url).origin) return json({ error: 'Invalid request origin.' }, 403);
+  }
+  if (path === '/api/fulfillment/issue' && method === 'POST') {
+    const secret = env.ZAPIER_ISSUE_SECRET;
+    if (!secret || secret.length < 32 || !cfg.accessVerificationConfigured || !cfg.accessKeySecret) {
+      return json({ error: 'Purchase fulfillment is not configured.' }, 503);
+    }
+    const expected = createHash('sha256').update(`Bearer ${secret}`).digest();
+    const supplied = createHash('sha256').update(request.headers.get('Authorization') ?? '').digest();
+    if (!timingSafeEqual(expected, supplied)) return json({ error: 'Unauthorized.' }, 401);
+
+    const body = await readBody(request);
+    const orderRef = typeof body.orderRef === 'string' ? body.orderRef.trim() : '';
+    if (!orderRef || orderRef.length > 64) return json({ error: 'Invalid order reference.' }, 400);
+    const { key } = issuePaidAccessKey({ secret: cfg.accessKeySecret, orderRef });
+    return json({ accessCode: key, workspaceUrl: new URL(request.url).origin });
   }
   if (path === '/api/auth/logout' && method === 'POST') {
     return json({ authenticated: false }, 200, { 'Set-Cookie': buildSessionCookieHeader('', true, true) });
